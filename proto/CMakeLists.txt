@@ -1,7 +1,7 @@
-find_package(Protobuf CONFIG REQUIRED)
-find_package(gRPC CONFIG REQUIRED)
+find_package(gRPC REQUIRED)
 find_package(Threads)
 find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin REQUIRED)
+find_package(Protobuf REQUIRED)
 
 #
 # Protobuf/Grpc source files
