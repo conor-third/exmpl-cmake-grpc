@@ -38,6 +38,7 @@ class GapGunRPCServiceImpl final : public GapGunRPCService::Service
 
         virtual ::grpc::Status SubscribeToMessages(::grpc::ServerContext* context, ::grpc::ServerReaderWriter<MessageRequest, MessageRequest>* stream) override
         {
+            std::cout << "calling SubscribeToMessages\n";
             MessageRequest mes_req;
             while(stream->Read(&mes_req))
             {
@@ -49,6 +50,8 @@ class GapGunRPCServiceImpl final : public GapGunRPCService::Service
 
                 received_mes.push_back(mes_req);
             }
+
+            return ::grpc::Status::OK;
         }
 
     private:

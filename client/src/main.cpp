@@ -9,6 +9,7 @@
 #include <grpcpp/create_channel.h>
 
 #include <iostream>
+#include <vector>
 
 MessageRequest MakeMessageRequest(const std::string& id, const MessageType type, const std::string& json)
 {
@@ -54,7 +55,24 @@ int main(int argc, char* argv[])
     std::shared_ptr<::grpc::ClientReaderWriter<MessageRequest, MessageRequest>> stream(gg_stub_bi->SubscribeToMessages(&gg_context_bi));
 
     std::thread writer([stream](){
-            });
+            std::vector<MessageRequest> reqs {MakeMessageRequest("42", MessageType::HealthCheck, "CONOR")};
+            for(const MessageRequest& req : reqs)
+            {
+                std::cout << "Sending message - id: " << req.request_id() << '\n';
+                stream->Write(req);
+            }
+            stream->WritesDone();
+        });
+
+    MessageRequest server_mes_req;
+    while(stream->Read(&server_mes_req))
+    {
+        std::cout << "Got message: request_id: " << server_mes_req.request_id() << '\n';
+    }
+    writer.join();
+    status = stream->Finish();
+    if(!status.ok())
+        std::cout << "SubscribeToMessages failed!\n";
 
     return 0;
 }
