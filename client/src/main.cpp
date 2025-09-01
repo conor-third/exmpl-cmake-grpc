@@ -1,3 +1,5 @@
+#include <memory>
+#include <thread>
 #include <myproto/address.pb.h>
 #include <myproto/addressbook.grpc.pb.h>
 #include <myproto/GapGun.pb.h>
@@ -8,6 +10,14 @@
 
 #include <iostream>
 
+MessageRequest MakeMessageRequest(const std::string& id, const MessageType type, const std::string& json)
+{
+    MessageRequest req;
+    req.set_request_id(id);
+    req.set_type(type);
+    req.set_json(json);
+    return req;
+}
 
 int main(int argc, char* argv[])
 {
@@ -37,8 +47,14 @@ int main(int argc, char* argv[])
     std::unique_ptr<GapGunRPCService::Stub> gg_stub = GapGunRPCService::NewStub(channel);
     grpc::ClientContext gg_context;
     status = gg_stub->SetToken(&gg_context, tok, &tok_res);
-
     std::cout << "Token response: " << tok_res.token() << '\n';
+    
+    grpc::ClientContext gg_context_bi;
+    std::unique_ptr<GapGunRPCService::Stub> gg_stub_bi = GapGunRPCService::NewStub(channel);
+    std::shared_ptr<::grpc::ClientReaderWriter<MessageRequest, MessageRequest>> stream(gg_stub_bi->SubscribeToMessages(&gg_context_bi));
+
+    std::thread writer([stream](){
+            });
 
     return 0;
 }

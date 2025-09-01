@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <mutex>
 #include <myproto/address.pb.h>
 #include <myproto/addressbook.grpc.pb.h>
 #include <myproto/addressbook.grpc.pb.h>
@@ -33,6 +35,25 @@ class GapGunRPCServiceImpl final : public GapGunRPCService::Service
             token_response->set_token("43");
             return ::grpc::Status::OK;
         }
+
+        virtual ::grpc::Status SubscribeToMessages(::grpc::ServerContext* context, ::grpc::ServerReaderWriter<MessageRequest, MessageRequest>* stream) override
+        {
+            MessageRequest mes_req;
+            while(stream->Read(&mes_req))
+            {
+                std::unique_lock<std::mutex> lock(mu_);
+                for(const MessageRequest& mes : received_mes)
+                {
+                    stream->Write(mes);
+                }
+
+                received_mes.push_back(mes_req);
+            }
+        }
+
+    private:
+        std::mutex mu_;
+        std::vector<MessageRequest> received_mes;
 };
 
 int main(int argc, char* argv[])

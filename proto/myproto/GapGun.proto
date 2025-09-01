@@ -41,7 +41,7 @@ message MessageResponse {
 // ---------------------------------------------------
 
 service GapGunRPCService {
-  rpc SubscribeToMessages (stream MessageResponse) returns (stream MessageRequest);
+  rpc SubscribeToMessages (stream MessageRequest) returns (stream MessageRequest) {};
   
   rpc SetToken (TokenRequest) returns (TokenRequest) {};
 
