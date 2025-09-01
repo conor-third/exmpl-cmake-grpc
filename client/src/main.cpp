@@ -1,5 +1,7 @@
 #include <myproto/address.pb.h>
 #include <myproto/addressbook.grpc.pb.h>
+#include <myproto/GapGun.pb.h>
+#include <myproto/GapGun.grpc.pb.h>
 
 #include <grpc/grpc.h>
 #include <grpcpp/create_channel.h>
@@ -27,6 +29,16 @@ int main(int argc, char* argv[])
     std::cout << "Zip:  " << result.zip() << std::endl;
     std::cout << "Street: " << result.street() << std::endl;
     std::cout << "Country: " << result.country() << std::endl;
+
+    TokenRequest tok;
+    TokenRequest tok_res;
+    tok.set_token("42");
+
+    std::unique_ptr<GapGunRPCService::Stub> gg_stub = GapGunRPCService::NewStub(channel);
+    grpc::ClientContext gg_context;
+    status = gg_stub->SetToken(&gg_context, tok, &tok_res);
+
+    std::cout << "Token response: " << tok_res.token() << '\n';
 
     return 0;
 }

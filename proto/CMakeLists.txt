@@ -9,6 +9,7 @@ find_package(Protobuf REQUIRED)
 set(PROTO_FILES
     myproto/address.proto
     myproto/addressbook.proto
+    myproto/GapGun.proto
 )
 
 #

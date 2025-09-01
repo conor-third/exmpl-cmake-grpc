@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+// import "google/protobuf/timestamp.proto";
+
+option csharp_namespace = "ThirdDimension.Clipper.Clients.gRPC";
+
+// ---------------------------------------------------
+// Auth & Registration
+// ---------------------------------------------------
+
+message TokenRequest {
+  string token = 1;
+}
+
+// ---------------------------------------------------
+// Messaging
+// ---------------------------------------------------
+
+enum MessageType {
+  HealthCheck = 0;
+  GetProperties = 1;
+  DeployCheckplan = 2;
+  Token = 3;
+}
+
+message MessageRequest {
+  string request_id = 1;
+  MessageType type = 2;
+  string json = 3;
+}
+
+message MessageResponse {
+  string request_id = 1;
+  MessageType type = 2;
+  string json = 3;
+}
+
+// ---------------------------------------------------
+// Services
+// ---------------------------------------------------
+
+service GapGunRPCService {
+  rpc SubscribeToMessages (stream MessageResponse) returns (stream MessageRequest);
+  
+  rpc SetToken (TokenRequest) returns (TokenRequest) {};
+
+  // Unary API (used for client to server communication)
+  // rpc Enroll (EnrollmentRequest) returns (google.protobuf.Empty);
+  
+  // rpc GetCheckPlan (google.protobuf.Empty) returns (CheckPlan);
+  // rpc SetCheckPlan (CheckPlan) returns (google.protobuf.Empty);
+  
+  // rpc GetCalibration (google.protobuf.Empty) returns (Calibration);
+  // rpc SetCalibration (Calibration) returns (google.protobuf.Empty);
+}
+// ---------------------------------------------------
+// Deprecated & Unsorted
+// ---------------------------------------------------
+
+// Health CheckPlan
+// message HealthCheckRequest {
+//   string client_id = 1;
+// }
+
+// message HealthCheckResponse {
+//   string client_id = 1;
+//   bool is_healthy = 2;
+//   string message = 3;
+// }
+
+// Unary API
+// message BasicRequest {
+//   string id = 1;
+// }
+
+// message BasicResponse {
+//   string id = 1;
+// }
+
+// message EnrollmentRequest {
+//   string id = 1;
+// }
+
+
+// // Models
+// message Group {
+//     string name = 1;
+//     string image = 2;
+// }
+
+// message CheckPlan {
+//     string name = 1;
+//     string image = 2;
+//     repeated Group groups = 3;
+// }
+
+// message Calibration {
+//   string id = 1;
+//   string name = 2;
+//   string serial_number = 3;
+//   string sensor_id = 4;
+//   string specification = 5;
+//   google.protobuf.Timestamp created_on = 6;
+//   google.protobuf.Timestamp issued_on = 7;
+//   string data = 8; 
+// }
