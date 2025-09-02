@@ -7,8 +7,6 @@ find_package(Protobuf REQUIRED)
 # Protobuf/Grpc source files
 #
 set(PROTO_FILES
-    myproto/address.proto
-    myproto/addressbook.proto
     myproto/GapGun.proto
 )
 
