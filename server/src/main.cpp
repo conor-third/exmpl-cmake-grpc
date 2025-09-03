@@ -12,6 +12,12 @@
 
 class GapGunRPCServiceImpl final : public GapGunRPCService::Service
 {
+    public:
+        GapGunRPCServiceImpl()
+        {
+            broadcaster_ = std::thread(&GapGunRPCServiceImpl::BroadcastThread, this);
+            broadcaster_.detach();
+        }
         virtual ::grpc::Status SetToken(::grpc::ServerContext* context, const ::TokenRequest* token_request, ::TokenRequest* token_response) override
         {
             std::cout << "setting token\n";
@@ -22,40 +28,61 @@ class GapGunRPCServiceImpl final : public GapGunRPCService::Service
 
         virtual ::grpc::Status SubscribeToMessages(::grpc::ServerContext* context, ::grpc::ServerReaderWriter<MessageRequest, MessageRequest>* stream) override
         {
-            std::thread writer([stream, context]()
+            std::cout << "Marvin\n";
             {
-                int counter = 0;
-                while(!context->IsCancelled())
-                {
-                    MessageRequest mes_req;
-                    mes_req.set_request_id(std::to_string(counter++));
-                    mes_req.set_type(MessageType::HealthCheck);
-                    mes_req.set_json("ping from server");
-
-                    if(!stream->Write(mes_req))
-                        break;
-
-                    std::cout << "Server sent message id = " << mes_req.request_id() << '\n';
-                    std::this_thread::sleep_for(std::chrono::seconds(5));
-                }
-                std::cout << "Writer thread exiting....\n";
-            });
-
-            MessageRequest client_res;
-            while(stream->Read(&client_res))
-            {
-                std::cout << "Received response id = " << client_res.request_id()
-                    << " json: " << client_res.json() << '\n';
+                std::cout << "acquiring lock\n";
+                std::lock_guard<std::mutex> lock(streams_mutex);
+                std::cout << "adding to active_streams\n";
+                active_streams.push_back(stream);
             }
 
-            writer.join();
-            std::cout << "stream closed\n";
+            // Reader loop: handle client responses
+            MessageRequest client_msg;
+            while (stream->Read(&client_msg)) {
+                std::cout << "[Server] Received response id=" 
+                          << client_msg.request_id()
+                          << ", text=" << client_msg.json() << std::endl;
+            }
+
+            // Remove stream from active list on disconnect
+            {
+                std::lock_guard<std::mutex> lock(streams_mutex);
+                active_streams.erase(std::remove(active_streams.begin(), active_streams.end(), stream),
+                                     active_streams.end());
+            }
+
+            std::cout << "[Server] Client disconnected, stream closed" << std::endl;
+
             return ::grpc::Status::OK;
         }
 
     private:
-        std::mutex mu_;
-        std::vector<MessageRequest> received_mes;
+        std::mutex streams_mutex;
+        std::vector<grpc::ServerReaderWriter<MessageRequest, MessageRequest>*> active_streams;
+        std::thread broadcaster_;
+
+        void BroadcastThread() {
+            int counter = 0;
+            while (true) {
+                MessageRequest msg;
+                msg.set_request_id(std::to_string(counter++));
+                msg.set_json("Ping from server");
+
+                std::vector<grpc::ServerReaderWriter<MessageRequest, MessageRequest>*> streams_copy;
+                {
+                    std::lock_guard<std::mutex> lock(streams_mutex);
+                    streams_copy = active_streams;  // copy pointers while locked
+                }
+
+                for (auto* stream : streams_copy) {
+                    if (!stream->Write(msg)) {
+                        std::cout << "[Server] Failed to write to a client stream" << std::endl;
+                    }
+                }
+
+                std::this_thread::sleep_for(std::chrono::seconds(5));
+            }
+        }
 };
 
 int main(int argc, char* argv[])
