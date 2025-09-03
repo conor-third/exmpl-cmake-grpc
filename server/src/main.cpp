@@ -7,6 +7,8 @@
 #include <grpcpp/server_builder.h>
 
 #include <iostream>
+#include <thread>
+#include <chrono>
 
 class GapGunRPCServiceImpl final : public GapGunRPCService::Service
 {
@@ -20,24 +22,34 @@ class GapGunRPCServiceImpl final : public GapGunRPCService::Service
 
         virtual ::grpc::Status SubscribeToMessages(::grpc::ServerContext* context, ::grpc::ServerReaderWriter<MessageRequest, MessageRequest>* stream) override
         {
-            MessageRequest mes_req;
-            while(stream->Read(&mes_req))
+            std::thread writer([stream, context]()
             {
-                std::unique_lock<std::mutex> lock(mu_);
-                for(const MessageRequest& mes : received_mes)
+                int counter = 0;
+                while(!context->IsCancelled())
                 {
-                    stream->Write(mes);
-                }
+                    MessageRequest mes_req;
+                    mes_req.set_request_id(std::to_string(counter++));
+                    mes_req.set_type(MessageType::HealthCheck);
+                    mes_req.set_json("ping from server");
 
-                received_mes.push_back(mes_req);
+                    if(!stream->Write(mes_req))
+                        break;
+
+                    std::cout << "Server sent message id = " << mes_req.request_id() << '\n';
+                    std::this_thread::sleep_for(std::chrono::seconds(5));
+                }
+                std::cout << "Writer thread exiting....\n";
+            });
+
+            MessageRequest client_res;
+            while(stream->Read(&client_res))
+            {
+                std::cout << "Received response id = " << client_res.request_id()
+                    << " json: " << client_res.json() << '\n';
             }
 
-            MessageRequest server_req;
-            server_req.set_request_id("42");
-            server_req.set_type(MessageType::HealthCheck);
-            server_req.set_json("MARVIN");
-            stream->Write(server_req);
-
+            writer.join();
+            std::cout << "stream closed\n";
             return ::grpc::Status::OK;
         }
 

@@ -1,3 +1,4 @@
+#include <grpcpp/support/sync_stream.h>
 #include <memory>
 #include <thread>
 #include <myproto/GapGun.pb.h>
@@ -22,39 +23,36 @@ int main(int argc, char* argv[])
 {
     // Call
     auto channel = grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials());
-
-    TokenRequest tok;
-    TokenRequest tok_res;
-    tok.set_token("42");
-
     std::unique_ptr<GapGunRPCService::Stub> gg_stub = GapGunRPCService::NewStub(channel);
-    grpc::ClientContext gg_context;
-    ::grpc::Status status = gg_stub->SetToken(&gg_context, tok, &tok_res);
-    std::cout << "Token response: " << tok_res.token() << '\n';
-    
-    grpc::ClientContext gg_context_bi;
-    std::unique_ptr<GapGunRPCService::Stub> gg_stub_bi = GapGunRPCService::NewStub(channel);
-    std::shared_ptr<::grpc::ClientReaderWriter<MessageRequest, MessageRequest>> stream(gg_stub_bi->SubscribeToMessages(&gg_context_bi));
+    grpc::ClientContext context;
 
-    std::thread writer([stream](){
-            std::vector<MessageRequest> reqs {MakeMessageRequest("42", MessageType::HealthCheck, "CONOR")};
-            for(const MessageRequest& req : reqs)
-            {
-                std::cout << "Sending message - id: " << req.request_id() << '\n';
-                stream->Write(req);
-            }
-            stream->WritesDone();
-        });
+    std::shared_ptr<::grpc::ClientReaderWriter<MessageRequest, MessageRequest>> stream = gg_stub->SubscribeToMessages(&context);
 
-    MessageRequest server_mes_req;
-    while(stream->Read(&server_mes_req))
+    std::thread reader([stream]()
     {
-        std::cout << "Got message: request_id: " << server_mes_req.request_id() << '\n';
-    }
-    writer.join();
-    status = stream->Finish();
-    if(!status.ok())
-        std::cout << "SubscribeToMessages failed!\n";
+        MessageRequest mes_req;
+        while(stream->Read(&mes_req))
+        {
+            std::cout << "Received server msg: id = " << mes_req.request_id() << " json = " << mes_req.json() << '\n';
+
+            MessageRequest reply;
+            reply.set_request_id(mes_req.request_id());
+            reply.set_json("Response from client");
+
+            if(!stream->Write(reply))
+                break;
+
+            std::cout << "[Client] Sent response for id=" << reply.request_id() << std::endl;
+        }
+
+        std::cout << "[Client] Reader thread exiting" << std::endl;
+    });
+
+    reader.join();
+
+    stream->WritesDone();
+    stream->Finish();
+    std::cout << "[Client] Stream finished" << std::endl;
 
     return 0;
 }
