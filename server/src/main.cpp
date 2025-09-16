@@ -28,11 +28,8 @@ class GapGunRPCServiceImpl final : public GapGunRPCService::Service
 
         virtual ::grpc::Status SubscribeToMessages(::grpc::ServerContext* context, ::grpc::ServerReaderWriter<MessageRequest, MessageRequest>* stream) override
         {
-            std::cout << "Marvin\n";
             {
-                std::cout << "acquiring lock\n";
                 std::lock_guard<std::mutex> lock(streams_mutex);
-                std::cout << "adding to active_streams\n";
                 active_streams.push_back(stream);
             }
 
